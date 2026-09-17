@@ -137,11 +137,23 @@ type AssignNode struct {
 
 func (AssignNode) node() {}
 
+// ConflictNode is an INSERT ON CONFLICT clause (Postgres / SQLite).
+type ConflictNode struct {
+	Columns    []Node // ON CONFLICT (col, ...)
+	Constraint string // ON CONFLICT ON CONSTRAINT name
+	DoNothing  bool
+	Updates    []AssignNode // DO UPDATE SET ...
+}
+
+func (ConflictNode) node() {}
+
 type InsertNode struct {
 	With      []CTENode
 	Table     RelationNode
 	Columns   []Node
 	Rows      [][]Node
+	Select    *SelectNode // INSERT ... SELECT; mutually exclusive with Rows
+	Conflict  *ConflictNode
 	Returning []Node
 }
 
