@@ -25,7 +25,7 @@ func CompileSelect(d Dialect, q ast.SelectNode) (string, []any, error) {
 		return "", nil, fmt.Errorf("elixir: dialect is nil")
 	}
 	c := &compiler{d: d}
-	sql := c.selectSQL(q, true)
+	sql := c.selectSQL(q)
 	if c.err != nil {
 		return "", nil, c.err
 	}
@@ -84,20 +84,80 @@ func CompileExpr(d Dialect, n ast.Node) (string, []any, error) {
 	return sql, c.args, nil
 }
 
-func (c *compiler) selectSQL(q ast.SelectNode, requireFrom bool) string {
+func (c *compiler) selectSQL(q ast.SelectNode) string {
+	var b strings.Builder
+	c.writeWith(&b, q.With)
+	b.WriteString(c.selectSQLNoWith(q))
+	return b.String()
+}
+
+func (c *compiler) selectSQLNoWith(q ast.SelectNode) string {
+	if len(q.Unions) > 0 {
+		var b strings.Builder
+		c.writeUnionArm(&b, c.selectCore(q))
+		for _, u := range q.Unions {
+			if u.All {
+				b.WriteString(" UNION ALL ")
+			} else {
+				b.WriteString(" UNION ")
+			}
+			c.writeUnionArm(&b, c.unionOperand(u.Query))
+		}
+		c.writeSelectTail(&b, q)
+		return b.String()
+	}
+	return c.selectCore(q) + c.selectTail(q)
+}
+
+func (c *compiler) unionOperand(q ast.SelectNode) string {
+	q.With = nil
+	if len(q.Unions) == 0 {
+		return c.selectCore(q)
+	}
+	var b strings.Builder
+	c.writeUnionArm(&b, c.selectCore(q))
+	for _, u := range q.Unions {
+		if u.All {
+			b.WriteString(" UNION ALL ")
+		} else {
+			b.WriteString(" UNION ")
+		}
+		c.writeUnionArm(&b, c.unionOperand(u.Query))
+	}
+	return b.String()
+}
+
+func (c *compiler) writeUnionArm(b *strings.Builder, sql string) {
+	if c.unionBare() {
+		b.WriteString(sql)
+		return
+	}
+	b.WriteByte('(')
+	b.WriteString(sql)
+	b.WriteByte(')')
+}
+
+func (c *compiler) unionBare() bool {
+	type probe interface{ UnionBare() bool }
+	p, ok := c.d.(probe)
+	return ok && p.UnionBare()
+}
+
+func (c *compiler) selectCore(q ast.SelectNode) string {
 	if len(q.Columns) == 0 {
 		c.err = fmt.Errorf("elixir: SELECT requires at least one column")
 		return ""
 	}
-	if requireFrom && q.From == nil {
-		c.err = fmt.Errorf("elixir: SELECT requires FROM")
+	if len(q.Joins) > 0 && q.From == nil {
+		c.err = fmt.Errorf("elixir: JOIN requires FROM")
 		return ""
 	}
 
 	var b strings.Builder
-	c.writeWith(&b, q.With)
-
 	b.WriteString("SELECT ")
+	if q.Distinct {
+		b.WriteString("DISTINCT ")
+	}
 	for i, col := range q.Columns {
 		if i > 0 {
 			b.WriteString(", ")
@@ -139,11 +199,20 @@ func (c *compiler) selectSQL(q ast.SelectNode, requireFrom bool) string {
 		b.WriteString(c.andGroup(q.Having))
 	}
 
+	return b.String()
+}
+
+func (c *compiler) selectTail(q ast.SelectNode) string {
+	var b strings.Builder
+	c.writeSelectTail(&b, q)
+	return b.String()
+}
+
+func (c *compiler) writeSelectTail(b *strings.Builder, q ast.SelectNode) {
 	if len(q.OrderBy) > 0 {
 		b.WriteString(" ORDER BY ")
-		c.writeOrderBy(&b, q.OrderBy)
+		c.writeOrderBy(b, q.OrderBy)
 	}
-
 	if q.Limit != nil {
 		b.WriteString(" LIMIT ")
 		b.WriteString(c.bind(*q.Limit))
@@ -152,8 +221,6 @@ func (c *compiler) selectSQL(q ast.SelectNode, requireFrom bool) string {
 		b.WriteString(" OFFSET ")
 		b.WriteString(c.bind(*q.Offset))
 	}
-
-	return b.String()
 }
 
 func (c *compiler) insertSQL(q ast.InsertNode) string {
@@ -195,7 +262,7 @@ func (c *compiler) insertSQL(q ast.InsertNode) string {
 			return ""
 		}
 		b.WriteByte(' ')
-		b.WriteString(c.selectSQL(*q.Select, true))
+		b.WriteString(c.selectSQL(*q.Select))
 	} else {
 		b.WriteString(" VALUES ")
 		for i, row := range q.Rows {
@@ -221,9 +288,33 @@ func (c *compiler) insertSQL(q ast.InsertNode) string {
 		}
 	}
 
+	if q.Conflict != nil && q.DuplicateKey != nil {
+		c.err = fmt.Errorf("elixir: INSERT cannot mix ON CONFLICT and ON DUPLICATE KEY")
+		return ""
+	}
 	c.writeConflict(&b, q.Conflict)
+	c.writeDuplicateKey(&b, q.DuplicateKey)
 	c.writeReturning(&b, q.Returning)
 	return b.String()
+}
+
+func (c *compiler) writeDuplicateKey(b *strings.Builder, sets []ast.AssignNode) {
+	if sets == nil || c.err != nil {
+		return
+	}
+	if len(sets) == 0 {
+		c.err = fmt.Errorf("elixir: ON DUPLICATE KEY UPDATE requires at least one SET")
+		return
+	}
+	b.WriteString(" ON DUPLICATE KEY UPDATE ")
+	for i, s := range sets {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(c.columnNameOnly(s.Column))
+		b.WriteString(" = ")
+		b.WriteString(c.expr(s.Value))
+	}
 }
 
 func (c *compiler) writeConflict(b *strings.Builder, conflict *ast.ConflictNode) {
@@ -364,7 +455,7 @@ func (c *compiler) writeWith(b *strings.Builder, ctes []ast.CTENode) {
 		b.WriteString(" AS (")
 		inner := cte.Query
 		inner.With = nil
-		b.WriteString(c.selectSQL(inner, true))
+		b.WriteString(c.selectSQL(inner))
 		b.WriteByte(')')
 	}
 	b.WriteByte(' ')
@@ -416,17 +507,26 @@ func (c *compiler) relation(r ast.RelationNode) string {
 		}
 		inner := *r.Subquery
 		inner.With = nil
-		return "(" + c.selectSQL(inner, true) + ") AS " + c.d.QuoteIdent(r.Alias)
+		return "(" + c.selectSQL(inner) + ") AS " + c.d.QuoteIdent(r.Alias)
 	}
 	if r.Name == "" {
 		c.err = fmt.Errorf("elixir: relation requires a table name")
 		return ""
 	}
 	s := c.d.QuoteIdent(r.Name)
+	if r.Schema != "" {
+		s = c.d.QuoteIdent(r.Schema) + "." + s
+	}
 	if r.Alias != "" {
 		s += " AS " + c.d.QuoteIdent(r.Alias)
 	}
 	return s
+}
+
+func (c *compiler) ilikeOK() bool {
+	type probe interface{ ILikeOK() bool }
+	p, ok := c.d.(probe)
+	return ok && p.ILikeOK()
 }
 
 func (c *compiler) columnNameOnly(n ast.Node) string {
@@ -463,7 +563,30 @@ func (c *compiler) expr(n ast.Node) string {
 	case ast.DefaultNode:
 		return "DEFAULT"
 	case ast.BinaryNode:
+		switch v.Op {
+		case ast.OpILike, ast.OpNotILike:
+			if !c.ilikeOK() {
+				c.err = fmt.Errorf("elixir: ILIKE is PostgreSQL-only")
+				return ""
+			}
+		}
 		return "(" + c.expr(v.Left) + " " + v.Op.SQL() + " " + c.expr(v.Right) + ")"
+	case ast.BetweenNode:
+		op := " BETWEEN "
+		if v.Not {
+			op = " NOT BETWEEN "
+		}
+		return "(" + c.expr(v.Expr) + op + c.expr(v.Low) + " AND " + c.expr(v.High) + ")"
+	case ast.CastNode:
+		if strings.TrimSpace(v.Type) == "" {
+			c.err = fmt.Errorf("elixir: CAST requires a type")
+			return ""
+		}
+		return "CAST(" + c.expr(v.Expr) + " AS " + v.Type + ")"
+	case ast.ExcludedNode:
+		return "EXCLUDED." + c.columnNameOnly(v.Column)
+	case ast.ValuesColNode:
+		return "VALUES(" + c.columnNameOnly(v.Column) + ")"
 	case ast.UnaryNode:
 		switch v.Op {
 		case ast.OpNot:
@@ -511,7 +634,7 @@ func (c *compiler) expr(n ast.Node) string {
 	case ast.SubqueryExprNode:
 		inner := v.Query
 		inner.With = nil
-		return "(" + c.selectSQL(inner, true) + ")"
+		return "(" + c.selectSQL(inner) + ")"
 	case ast.InNode:
 		var b strings.Builder
 		b.WriteByte('(')
@@ -525,7 +648,7 @@ func (c *compiler) expr(n ast.Node) string {
 			inner := *v.Query
 			inner.With = nil
 			b.WriteByte('(')
-			b.WriteString(c.selectSQL(inner, true))
+			b.WriteString(c.selectSQL(inner))
 			b.WriteByte(')')
 		} else {
 			if len(v.List) == 0 {
@@ -547,9 +670,9 @@ func (c *compiler) expr(n ast.Node) string {
 		inner := v.Query
 		inner.With = nil
 		if v.Not {
-			return "(NOT EXISTS (" + c.selectSQL(inner, true) + "))"
+			return "(NOT EXISTS (" + c.selectSQL(inner) + "))"
 		}
-		return "(EXISTS (" + c.selectSQL(inner, true) + "))"
+		return "(EXISTS (" + c.selectSQL(inner) + "))"
 	case ast.WindowNode:
 		var b strings.Builder
 		b.WriteString(c.expr(v.Expr))

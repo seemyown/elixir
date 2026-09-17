@@ -28,3 +28,54 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: elixir
+          POSTGRES_PASSWORD: elixir
+          POSTGRES_DB: elixir
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U elixir -d elixir"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: elixir
+          MYSQL_DATABASE: elixir
+          MYSQL_USER: elixir
+          MYSQL_PASSWORD: elixir
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pelixir"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: true
+
+      - name: Tidy (keep integration drivers)
+        run: GOFLAGS='-tags=integration' go mod tidy
+
+      - name: Integration tests
+        env:
+          ELIXIR_PG_DSN: postgres://elixir:elixir@localhost:5432/elixir?sslmode=disable
+          ELIXIR_MYSQL_DSN: elixir:elixir@tcp(127.0.0.1:3306)/elixir?parseTime=true&multiStatements=true
+          ELIXIR_MYSQL_SCHEMA: elixir
+        run: go test -tags=integration ./...

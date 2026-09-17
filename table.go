@@ -28,12 +28,15 @@ type Table interface {
 //		Email:    Column[string]{Name: "email"},
 //	})
 type TableRef struct {
-	Name  string
-	Alias string
+	// Schema, when non-empty, qualifies the table as schema.table in FROM / DML.
+	// Column qualifiers still use Alias or Name, never Schema. Bind / As leave Schema unchanged.
+	Schema string
+	Name   string
+	Alias  string
 }
 
 func (t TableRef) tableRef() ast.RelationNode {
-	return ast.RelationNode{Name: t.Name, Alias: t.Alias}
+	return ast.RelationNode{Schema: t.Schema, Name: t.Name, Alias: t.Alias}
 }
 
 // TableName returns the underlying table name.
@@ -41,7 +44,7 @@ func (t TableRef) TableName() string { return t.Name }
 
 // As returns a copy of the table reference with the given alias.
 func (t TableRef) As(alias string) TableRef {
-	return TableRef{Name: t.Name, Alias: alias}
+	return TableRef{Schema: t.Schema, Name: t.Name, Alias: alias}
 }
 
 type columnMarker interface {
@@ -126,7 +129,7 @@ func setColumnTables(v reflect.Value, qualifier string, overwrite bool) {
 }
 
 // columnDefaults walks table struct fields and returns DEFAULT assignments for
-// columns whose Default metadata is non-nil.
+// columns whose HasDefault metadata is true.
 func columnDefaults(src any) []ast.AssignNode {
 	if src == nil {
 		return nil
@@ -150,8 +153,8 @@ func columnDefaults(src any) []ast.AssignNode {
 		if _, ok := f.Interface().(columnMarker); !ok {
 			continue
 		}
-		defField := f.FieldByName("Default")
-		if !defField.IsValid() || defField.Kind() != reflect.Interface || defField.IsNil() {
+		hasDef := f.FieldByName("HasDefault")
+		if !hasDef.IsValid() || hasDef.Kind() != reflect.Bool || !hasDef.Bool() {
 			continue
 		}
 		nameField := f.FieldByName("Name")

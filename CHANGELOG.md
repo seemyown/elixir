@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0] - 2026-09-17
+
+### Added
+
+- Predicates and expressions: `Like` / `NotLike` / `ILike` / `NotILike`, `Between` / `NotBetween`, `Cast`, arithmetic (`Add` / `Sub` / `Mul` / `Div`) with `*Expr` variants
+- `SELECT DISTINCT` via `SelectQuery.Distinct`
+- `UNION` / `UNION ALL` via `Union` / `UnionAll` (`ORDER BY` / `LIMIT` / `OFFSET` apply to the compound query)
+- `FROM` is optional when there are no JOINs (e.g. `SELECT EXISTS(...)`, `SELECT 1`)
+- `TableRef.Schema` for `schema.table` in FROM / DML (column qualifiers stay alias/name)
+- `Excluded` (`EXCLUDED.col`) and `ValuesCol` (`VALUES(col)`) for upserts
+- `InsertQuery.OnDuplicateKey` (MySQL `ON DUPLICATE KEY UPDATE`)
+- `Null[T]` implements `sql.Scanner` and `driver.Valuer` via `sql.Null[T]`
+- `Column[T].WithDefault` / `HasDefault` (and the same on `NullColumn[T]`)
+- Integration tests (`go test -tags=integration`) against Postgres, MySQL, and SQLite; CI job with live database services
+
+### Changed
+
+- **Breaking:** `Column[T].IsNull` / `IsNotNull` are removed. Use `Expr[T]` or `NullColumn[T]` (nullable columns).
+- **Breaking:** `Default` is typed as `T` instead of `any`. A zero value no longer means “no default”; set `HasDefault` via `WithDefault(v)`.
+
 ## [v0.1.4] - 2026-09-17
 
 ### Added

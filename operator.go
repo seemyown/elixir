@@ -6,12 +6,20 @@ import "github.com/seemyown/elixir/internal/ast"
 type BinaryOperator = ast.BinaryOperator
 
 const (
-	OpEq  = ast.OpEq
-	OpNe  = ast.OpNe
-	OpGt  = ast.OpGt
-	OpGte = ast.OpGte
-	OpLt  = ast.OpLt
-	OpLte = ast.OpLte
+	OpEq       = ast.OpEq
+	OpNe       = ast.OpNe
+	OpGt       = ast.OpGt
+	OpGte      = ast.OpGte
+	OpLt       = ast.OpLt
+	OpLte      = ast.OpLte
+	OpLike     = ast.OpLike
+	OpNotLike  = ast.OpNotLike
+	OpILike    = ast.OpILike
+	OpNotILike = ast.OpNotILike
+	OpAdd      = ast.OpAdd
+	OpSub      = ast.OpSub
+	OpMul      = ast.OpMul
+	OpDiv      = ast.OpDiv
 )
 
 // UnaryOperator is a unary SQL operator.

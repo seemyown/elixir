@@ -36,6 +36,38 @@ type BinaryNode struct {
 
 func (BinaryNode) node() {}
 
+// BetweenNode is expr [NOT] BETWEEN low AND high.
+type BetweenNode struct {
+	Expr Node
+	Low  Node
+	High Node
+	Not  bool
+}
+
+func (BetweenNode) node() {}
+
+// CastNode is CAST(expr AS type). Type is raw SQL (not quoted).
+type CastNode struct {
+	Expr Node
+	Type string
+}
+
+func (CastNode) node() {}
+
+// ExcludedNode is EXCLUDED.col (Postgres / SQLite ON CONFLICT).
+type ExcludedNode struct {
+	Column Node
+}
+
+func (ExcludedNode) node() {}
+
+// ValuesColNode is VALUES(col) (MySQL ON DUPLICATE KEY UPDATE).
+type ValuesColNode struct {
+	Column Node
+}
+
+func (ValuesColNode) node() {}
+
 type UnaryNode struct {
 	Op   UnaryOperator
 	Expr Node
@@ -80,6 +112,7 @@ func (StarNode) node() {}
 
 // RelationNode is a table, CTE name, or subquery usable in FROM / JOIN.
 type RelationNode struct {
+	Schema   string
 	Name     string
 	Alias    string
 	Subquery *SelectNode
@@ -118,17 +151,25 @@ type CTENode struct {
 
 func (CTENode) node() {}
 
+// UnionNode is one UNION / UNION ALL operand attached to a SELECT.
+type UnionNode struct {
+	All   bool
+	Query SelectNode
+}
+
 type SelectNode struct {
-	With    []CTENode
-	Columns []Node
-	From    *RelationNode
-	Joins   []JoinNode
-	Where   []Node
-	GroupBy []Node
-	Having  []Node
-	OrderBy []OrderNode
-	Limit   *int
-	Offset  *int
+	With     []CTENode
+	Distinct bool
+	Columns  []Node
+	From     *RelationNode
+	Joins    []JoinNode
+	Where    []Node
+	GroupBy  []Node
+	Having   []Node
+	OrderBy  []OrderNode
+	Limit    *int
+	Offset   *int
+	Unions   []UnionNode
 }
 
 func (SelectNode) node() {}
@@ -151,13 +192,14 @@ type ConflictNode struct {
 func (ConflictNode) node() {}
 
 type InsertNode struct {
-	With      []CTENode
-	Table     RelationNode
-	Columns   []Node
-	Rows      [][]Node
-	Select    *SelectNode // INSERT ... SELECT; mutually exclusive with Rows
-	Conflict  *ConflictNode
-	Returning []Node
+	With         []CTENode
+	Table        RelationNode
+	Columns      []Node
+	Rows         [][]Node
+	Select       *SelectNode // INSERT ... SELECT; mutually exclusive with Rows
+	Conflict     *ConflictNode
+	DuplicateKey []AssignNode // MySQL ON DUPLICATE KEY UPDATE
+	Returning    []Node
 }
 
 func (InsertNode) node() {}

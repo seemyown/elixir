@@ -73,7 +73,7 @@ func (q InsertQuery) WithDefaults() InsertQuery {
 
 // OnConflict starts an ON CONFLICT clause with optional inference columns.
 // With no columns, only DoNothing is valid (SQLite / Postgres catch-all).
-// MySQL does not support ON CONFLICT (use ON DUPLICATE KEY UPDATE in raw SQL).
+// MySQL does not support ON CONFLICT; use OnDuplicateKey instead.
 func (q InsertQuery) OnConflict(cols ...Expression) OnConflictBuilder {
 	columns := make([]ast.Node, len(cols))
 	for i, c := range cols {
@@ -118,6 +118,27 @@ func (b OnConflictBuilder) DoUpdate(assigns ...Assignment) InsertQuery {
 		Updates:    updates,
 	}
 	return b.q
+}
+
+// OnDuplicateKey appends MySQL ON DUPLICATE KEY UPDATE assignments.
+// Incompatible with OnConflict / OnConflictConstraint.
+func (q InsertQuery) OnDuplicateKey(assigns ...Assignment) InsertQuery {
+	updates := make([]ast.AssignNode, len(assigns))
+	for i, a := range assigns {
+		updates[i] = a.node
+	}
+	q.node.DuplicateKey = updates
+	return q
+}
+
+// Excluded references EXCLUDED.col in ON CONFLICT DO UPDATE (Postgres / SQLite).
+func Excluded[T any](col ExprOf[T]) Expr[T] {
+	return Expr[T]{node: ast.ExcludedNode{Column: col.asExpr().node}}
+}
+
+// ValuesCol references VALUES(col) in ON DUPLICATE KEY UPDATE (MySQL).
+func ValuesCol[T any](col ExprOf[T]) Expr[T] {
+	return Expr[T]{node: ast.ValuesColNode{Column: col.asExpr().node}}
 }
 
 // Returning appends a RETURNING clause (Postgres / SQLite; MySQL support varies).

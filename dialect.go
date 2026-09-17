@@ -26,6 +26,8 @@ func (postgresDialect) QuoteIdent(name string) string {
 	return quoteDouble(name)
 }
 
+func (postgresDialect) ilikeOK() bool { return true }
+
 type questionDialect struct{}
 
 func (questionDialect) Placeholder(n int) string {
@@ -36,6 +38,8 @@ func (questionDialect) Placeholder(n int) string {
 func (questionDialect) QuoteIdent(name string) string {
 	return quoteDouble(name)
 }
+
+func (questionDialect) unionBare() bool { return true }
 
 // MySQL returns a MySQL-oriented dialect (? placeholders, backtick quoting).
 func MySQL() Dialect { return mysqlDialect{} }

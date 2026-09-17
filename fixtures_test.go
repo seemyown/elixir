@@ -10,6 +10,7 @@ type userTable struct {
 
 	ID        Column[int64]
 	Email     Column[string]
+	Bio       NullColumn[string]
 	Active    Column[bool]
 	CreatedAt Column[time.Time]
 }
@@ -27,7 +28,8 @@ var (
 		TableRef:  TableRef{Name: "users"},
 		ID:        Column[int64]{Name: "id"},
 		Email:     Column[string]{Name: "email"},
-		Active:    Column[bool]{Name: "active", Default: true},
+		Bio:       NullColumn[string]{Name: "bio"},
+		Active:    Column[bool]{Name: "active"}.WithDefault(true),
 		CreatedAt: Column[time.Time]{Name: "created_at"},
 	})
 

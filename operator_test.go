@@ -9,6 +9,12 @@ func TestOperatorSQL(t *testing.T) {
 	if OpGte.SQL() != ">=" || OpLt.SQL() != "<" || OpLte.SQL() != "<=" {
 		t.Fatal("binary SQL tokens")
 	}
+	if OpLike.SQL() != "LIKE" || OpNotLike.SQL() != "NOT LIKE" || OpILike.SQL() != "ILIKE" || OpNotILike.SQL() != "NOT ILIKE" {
+		t.Fatal("like SQL tokens")
+	}
+	if OpAdd.SQL() != "+" || OpSub.SQL() != "-" || OpMul.SQL() != "*" || OpDiv.SQL() != "/" {
+		t.Fatal("arith SQL tokens")
+	}
 	if OpNot.SQL() != "NOT" || OpIsNull.SQL() != "IS NULL" || OpIsNotNull.SQL() != "IS NOT NULL" {
 		t.Fatal("unary SQL tokens")
 	}
