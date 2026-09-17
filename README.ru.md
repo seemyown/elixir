@@ -12,6 +12,7 @@
 
 - Типизированные колонки и выражения (`Column[T]`, предикаты, функции, агрегаты)
 - Fluent-билдеры `Select` / `Insert` / `Update` / `Delete`
+- `All()` / `AllOf(table)` для `SELECT *` и `table.*`
 - `Engine` с диалектом по умолчанию — `Compile()` без лишнего аргумента
 - Диалекты Postgres, MySQL и SQLite
 - Именованный insert (`Set` / `WithDefaults`), `RETURNING`, `INSERT … SELECT`, `ON CONFLICT`
@@ -92,6 +93,12 @@ q := elixir.Select(Users.ID, Users.Email).
 	Limit(10)
 
 sql, args, err := q.Compile(elixir.Postgres())
+
+// SELECT *
+elixir.Select(elixir.All()).From(Users)
+
+// SELECT "users".* (удобно при JOIN)
+elixir.Select(elixir.AllOf(Users), Orders.Amount).From(Users)
 ```
 
 Также поддерживаются JOIN, `GROUP BY` / `HAVING`, подзапросы, CTE, оконные функции и `CASE`.
@@ -166,7 +173,7 @@ _ = sqlerr.Code(err) // SQLSTATE / код драйвера, если досту�
 
 Экспериментальный API; возможны изменения.
 
-**Реализовано:** типизированные выражения и предикаты; SELECT/INSERT/UPDATE/DELETE; `Bind`/`As`; метаданные колонок; именованный insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; JOIN, агрегаты, функции, подзапросы, CTE, окна, CASE; диалекты Postgres/MySQL/SQLite; `Engine`; `sqlerr`.
+**Реализовано:** типизированные выражения и предикаты; SELECT/INSERT/UPDATE/DELETE; `All`/`AllOf`; `Bind`/`As`; метаданные колонок; именованный insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; JOIN, агрегаты, функции, подзапросы, CTE, окна, CASE; диалекты Postgres/MySQL/SQLite; `Engine`; `sqlerr`.
 
 **Пока нет:** рекурсивные CTE; хелперы интеграции с pgx.
 
