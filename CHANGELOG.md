@@ -1,0 +1,38 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v0.1.1] - 2026-09-17
+
+### Added
+
+- `INSERT … SELECT` via `InsertQuery.Select`
+- `ON CONFLICT` / `ON CONFLICT ON CONSTRAINT` with `DoNothing` and `DoUpdate` (Postgres / SQLite)
+- Package [`github.com/seemyown/elixir/sqlerr`](./sqlerr) for driver-agnostic SQL error classification:
+  - `IsUniqueViolation`, `IsForeignKeyViolation`, `IsNotNullViolation`, `IsCheckViolation`
+  - `IsSerializationFailure` (includes common deadlocks / lock contention)
+  - `IsNoRows`, `Code`
+- Rewritten English and Russian READMEs in a standard Go library layout
+
+### Changed
+
+- Compiler and AST support for insert-select sources and conflict clauses
+
+## [v0.1.0] - 2026-09-17
+
+### Added
+
+- Initial release of `github.com/seemyown/elixir`
+- Typed expression model (`Column[T]`, predicates, literals, functions, aggregates)
+- Fluent `Select` / `Insert` / `Update` / `Delete` builders
+- `Engine` (`New` / `WithDialect`) with default dialect and dialect-free `Compile()`
+- Dialects: PostgreSQL, MySQL, SQLite
+- Table helpers: `Bind`, `As`, column metadata (`Nullable`, `Default`)
+- Named inserts (`Set` / `SetExpr` / `SetNull` / `WithDefaults`) and `RETURNING`
+- Joins, subqueries, CTEs, window functions, searched/simple `CASE`
+- Internal AST and SQL compiler under `internal/`
+- Mirror unit and example tests
+- MIT license; bilingual README (EN / RU)
