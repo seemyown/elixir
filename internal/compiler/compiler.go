@@ -161,8 +161,14 @@ func (c *compiler) insertSQL(q ast.InsertNode) string {
 		c.err = fmt.Errorf("elixir: INSERT requires a named table")
 		return ""
 	}
-	if len(q.Rows) == 0 {
-		c.err = fmt.Errorf("elixir: INSERT requires at least one VALUES row")
+	hasRows := len(q.Rows) > 0
+	hasSelect := q.Select != nil
+	if hasRows && hasSelect {
+		c.err = fmt.Errorf("elixir: INSERT cannot mix VALUES and SELECT")
+		return ""
+	}
+	if !hasRows && !hasSelect {
+		c.err = fmt.Errorf("elixir: INSERT requires VALUES or SELECT")
 		return ""
 	}
 
@@ -183,31 +189,94 @@ func (c *compiler) insertSQL(q ast.InsertNode) string {
 		b.WriteByte(')')
 	}
 
-	b.WriteString(" VALUES ")
-	for i, row := range q.Rows {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		if len(q.Columns) > 0 && len(row) != len(q.Columns) {
-			c.err = fmt.Errorf("elixir: INSERT VALUES row %d has %d values, expected %d columns", i, len(row), len(q.Columns))
+	if hasSelect {
+		if len(q.Select.With) > 0 {
+			c.err = fmt.Errorf("elixir: INSERT SELECT cannot carry WITH; use With(...).Insert(...)")
 			return ""
 		}
-		if len(row) == 0 {
-			c.err = fmt.Errorf("elixir: INSERT VALUES row %d is empty", i)
-			return ""
-		}
-		b.WriteByte('(')
-		for j, v := range row {
-			if j > 0 {
+		b.WriteByte(' ')
+		b.WriteString(c.selectSQL(*q.Select, true))
+	} else {
+		b.WriteString(" VALUES ")
+		for i, row := range q.Rows {
+			if i > 0 {
 				b.WriteString(", ")
 			}
-			b.WriteString(c.expr(v))
+			if len(q.Columns) > 0 && len(row) != len(q.Columns) {
+				c.err = fmt.Errorf("elixir: INSERT VALUES row %d has %d values, expected %d columns", i, len(row), len(q.Columns))
+				return ""
+			}
+			if len(row) == 0 {
+				c.err = fmt.Errorf("elixir: INSERT VALUES row %d is empty", i)
+				return ""
+			}
+			b.WriteByte('(')
+			for j, v := range row {
+				if j > 0 {
+					b.WriteString(", ")
+				}
+				b.WriteString(c.expr(v))
+			}
+			b.WriteByte(')')
+		}
+	}
+
+	c.writeConflict(&b, q.Conflict)
+	c.writeReturning(&b, q.Returning)
+	return b.String()
+}
+
+func (c *compiler) writeConflict(b *strings.Builder, conflict *ast.ConflictNode) {
+	if conflict == nil || c.err != nil {
+		return
+	}
+
+	hasCols := len(conflict.Columns) > 0
+	hasConstraint := conflict.Constraint != ""
+	if hasCols && hasConstraint {
+		c.err = fmt.Errorf("elixir: ON CONFLICT cannot mix columns and constraint")
+		return
+	}
+
+	b.WriteString(" ON CONFLICT")
+	switch {
+	case hasConstraint:
+		b.WriteString(" ON CONSTRAINT ")
+		b.WriteString(c.d.QuoteIdent(conflict.Constraint))
+	case hasCols:
+		b.WriteString(" (")
+		for i, col := range conflict.Columns {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(c.columnNameOnly(col))
 		}
 		b.WriteByte(')')
 	}
 
-	c.writeReturning(&b, q.Returning)
-	return b.String()
+	if conflict.DoNothing {
+		b.WriteString(" DO NOTHING")
+		return
+	}
+
+	if !hasCols && !hasConstraint {
+		c.err = fmt.Errorf("elixir: ON CONFLICT DO UPDATE requires a conflict target")
+		return
+	}
+	if len(conflict.Updates) == 0 {
+		c.err = fmt.Errorf("elixir: ON CONFLICT DO UPDATE requires at least one SET")
+		return
+	}
+
+	b.WriteString(" DO UPDATE SET ")
+	for i, s := range conflict.Updates {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(c.columnNameOnly(s.Column))
+		b.WriteString(" = ")
+		b.WriteString(c.expr(s.Value))
+	}
 }
 
 func (c *compiler) updateSQL(q ast.UpdateNode) string {
