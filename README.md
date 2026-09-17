@@ -12,6 +12,7 @@ Not an ORM — you define tables in Go and compose typed expressions into SQL. P
 
 - Typed columns and expressions (`Column[T]`, predicates, functions, aggregates)
 - Fluent `Select` / `Insert` / `Update` / `Delete` builders
+- `All()` / `AllOf(table)` for `SELECT *` and `table.*`
 - `Engine` with a default dialect so `Compile()` needs no extra argument
 - Postgres, MySQL, and SQLite dialects
 - Named inserts (`Set` / `WithDefaults`), `RETURNING`, `INSERT … SELECT`, `ON CONFLICT`
@@ -92,6 +93,12 @@ q := elixir.Select(Users.ID, Users.Email).
 	Limit(10)
 
 sql, args, err := q.Compile(elixir.Postgres())
+
+// SELECT *
+elixir.Select(elixir.All()).From(Users)
+
+// SELECT "users".* (handy with joins)
+elixir.Select(elixir.AllOf(Users), Orders.Amount).From(Users)
 ```
 
 Joins, `GROUP BY` / `HAVING`, subqueries, CTEs, window functions, and `CASE` are also supported.
@@ -166,7 +173,7 @@ Helpers inspect SQLSTATE, soft driver error shapes, and message patterns for Pos
 
 Experimental; the API may change.
 
-**Implemented:** typed expressions and predicates; SELECT/INSERT/UPDATE/DELETE; `Bind`/`As`; column metadata; named insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; joins, aggregates, functions, subqueries, CTEs, windows, CASE; Postgres/MySQL/SQLite dialects; `Engine`; `sqlerr`.
+**Implemented:** typed expressions and predicates; SELECT/INSERT/UPDATE/DELETE; `All`/`AllOf`; `Bind`/`As`; column metadata; named insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; joins, aggregates, functions, subqueries, CTEs, windows, CASE; Postgres/MySQL/SQLite dialects; `Engine`; `sqlerr`.
 
 **Not yet:** recursive CTE; pgx integration helpers.
 

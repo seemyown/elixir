@@ -30,6 +30,27 @@ func ExampleEngine() {
 	// [1]
 }
 
+func ExampleAll() {
+	type userTable struct {
+		elixir.TableRef
+		ID elixir.Column[int64]
+	}
+	Users := elixir.Bind(userTable{
+		TableRef: elixir.TableRef{Name: "users"},
+		ID:       elixir.Column[int64]{Name: "id"},
+	})
+
+	sql, args, err := elixir.Select(elixir.All()).From(Users).Compile(elixir.Postgres())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(sql)
+	fmt.Println(args)
+	// Output:
+	// SELECT * FROM "users"
+	// []
+}
+
 func ExampleSelect() {
 	type userTable struct {
 		elixir.TableRef

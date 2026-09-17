@@ -502,7 +502,10 @@ func (c *compiler) expr(n ast.Node) string {
 	case ast.DistinctNode:
 		return "DISTINCT " + c.expr(v.Expr)
 	case ast.StarNode:
-		return "*"
+		if v.Table == "" {
+			return "*"
+		}
+		return c.d.QuoteIdent(v.Table) + ".*"
 	case ast.RelationNode:
 		return c.relation(v)
 	case ast.SubqueryExprNode:
