@@ -71,7 +71,10 @@ type DistinctNode struct {
 
 func (DistinctNode) node() {}
 
-type StarNode struct{}
+type StarNode struct {
+	// Table, when non-empty, renders as table.* (qualified star).
+	Table string
+}
 
 func (StarNode) node() {}
 

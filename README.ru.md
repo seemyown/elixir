@@ -184,6 +184,8 @@ Count(Users.ID)
 Sum(Orders.Amount)
 Lower(Users.Email)
 Value("unknown")
+All()           // SQL *
+AllOf(Users)    // "users".*
 ```
 
 Выражения можно комбинировать:
@@ -345,6 +347,16 @@ Binary
 ## Построение запросов
 
 Query layer строится поверх системы выражений.
+
+```go
+// SELECT *
+query := Select(All()).From(Users).Where(Users.ID.Eq(1))
+
+// SELECT "users".* (удобно при JOIN)
+query := Select(AllOf(Users), Orders.Amount).
+    From(Users).
+    Join(Orders, Users.ID.EqExpr(Orders.UserID))
+```
 
 ```go
 query := Select(
@@ -640,6 +652,7 @@ Elixir находится на экспериментальной стадии.
 * [x] SQL-функции (`Lower`, `Upper`, `Coalesce`, `Func`)
 * [x] Агрегации (`Count`, `CountAll`, `Sum`, `Avg`, `Min`, `Max`, `Distinct`)
 * [x] SELECT / FROM / WHERE
+* [x] `All()` / `AllOf(table)` (`SELECT *` / `table.*`)
 * [x] GROUP BY / HAVING
 * [x] ORDER BY / LIMIT / OFFSET
 * [x] JOIN / LEFT / RIGHT / FULL

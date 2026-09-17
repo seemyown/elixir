@@ -184,6 +184,8 @@ Count(Users.ID)
 Sum(Orders.Amount)
 Lower(Users.Email)
 Value("unknown")
+All()           // SQL *
+AllOf(Users)    // "users".*
 ```
 
 Expressions can be composed:
@@ -347,6 +349,16 @@ This keeps query construction separate from SQL rendering.
 ## Query building
 
 The query layer is intentionally built on top of the expression system.
+
+```go
+// SELECT *
+query := Select(All()).From(Users).Where(Users.ID.Eq(1))
+
+// SELECT "users".* (useful with joins)
+query := Select(AllOf(Users), Orders.Amount).
+    From(Users).
+    Join(Orders, Users.ID.EqExpr(Orders.UserID))
+```
 
 ```go
 query := Select(
@@ -642,6 +654,7 @@ Implemented:
 * [x] SQL functions (`Lower`, `Upper`, `Coalesce`, `Func`)
 * [x] Aggregations (`Count`, `CountAll`, `Sum`, `Avg`, `Min`, `Max`, `Distinct`)
 * [x] SELECT / FROM / WHERE
+* [x] `All()` / `AllOf(table)` (`SELECT *` / `table.*`)
 * [x] GROUP BY / HAVING
 * [x] ORDER BY / LIMIT / OFFSET
 * [x] JOIN / LEFT / RIGHT / FULL
