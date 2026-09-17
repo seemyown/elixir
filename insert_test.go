@@ -90,12 +90,12 @@ func TestInsertSetNull(t *testing.T) {
 	type bioTable struct {
 		TableRef
 		Email Column[string]
-		Bio   Column[string]
+		Bio   NullColumn[string]
 	}
 	tbio := Bind(bioTable{
 		TableRef: TableRef{Name: "users"},
 		Email:    Column[string]{Name: "email"},
-		Bio:      Column[string]{Name: "bio", Nullable: true},
+		Bio:      NullColumn[string]{Name: "bio"},
 	})
 	q := Insert(tbio).Set(
 		tbio.Email.Set("a@example.com"),

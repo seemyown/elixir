@@ -2,22 +2,18 @@ package elixir
 
 import "github.com/seemyown/elixir/internal/ast"
 
-// Column is a typed table column expression.
+// Column is a typed non-NULL table column expression.
 //
-// Define columns with struct literals. Name is required; Table is an optional
-// qualifier used for joins and disambiguation (or filled by Bind):
+// For NULL-able columns use NullColumn[T]. Assigning Null[T] / calling SetNull
+// on Column[T] is a Go compile-time error.
 //
 //	Column[int64]{Name: "id"}
-//	Column[int64]{Table: "users", Name: "id"}
-//	Column[string]{Name: "bio", Nullable: true}
 //	Column[bool]{Name: "active", Default: true}
 type Column[T any] struct {
 	// Table is an optional SQL qualifier (table name or alias).
 	Table string
 	// Name is the column name.
 	Name string
-	// Nullable marks the column as NULL-able (schema metadata).
-	Nullable bool
 	// Default, when non-nil, records a DB default. Used by Insert.WithDefaults
 	// to emit an explicit DEFAULT for omitted columns.
 	Default any
@@ -34,11 +30,6 @@ func (c Column[T]) Set(value T) Assignment {
 // SetExpr builds a typed column = expression assignment for INSERT/UPDATE.
 func (c Column[T]) SetExpr(expr ExprOf[T]) Assignment {
 	return SetExpr(c, expr)
-}
-
-// SetNull builds a typed column = NULL assignment for INSERT/UPDATE.
-func (c Column[T]) SetNull() Assignment {
-	return SetNull(c)
 }
 
 func (c Column[T]) exprNode() ast.Node {

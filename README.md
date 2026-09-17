@@ -16,6 +16,7 @@ Not an ORM — you define tables in Go and compose typed expressions into SQL. P
 - `Engine` with a default dialect so `Compile()` needs no extra argument
 - Postgres, MySQL, and SQLite dialects
 - Named inserts (`Set` / `WithDefaults`), `RETURNING`, `INSERT … SELECT`, `ON CONFLICT`
+- `Null[T]` / `NullColumn[T]` for nullable values (`*T`, compatible with `sql.Null[T]`)
 - Driver-agnostic SQL error helpers in [`sqlerr`](./sqlerr)
 
 ## Installation
@@ -74,14 +75,25 @@ var Users = elixir.Bind(UserTable{
 	TableRef: elixir.TableRef{Name: "users"},
 	ID:       elixir.Column[int64]{Name: "id"},
 	Email:    elixir.Column[string]{Name: "email"},
-	Bio:      elixir.Column[string]{Name: "bio", Nullable: true},
+	Bio:      elixir.NullColumn[string]{Name: "bio"},
 	Active:   elixir.Column[bool]{Name: "active", Default: true},
 })
 
 u := elixir.As(Users, "u") // aliased copy for JOINs
 ```
 
-Optional metadata: `Nullable`, `Default` (used by `Insert.WithDefaults`).
+`Column[T]` is NOT NULL — `SetNull` / `Null[T]` do not compile against it.  
+`NullColumn[T]` accepts `SetPtr(*T)`, `SetOpt(Null[T])`, `SetSQLNull(sql.Null[T])`, `SetNull()`.
+
+`Default` on either column type is used by `Insert.WithDefaults`.
+
+```go
+Users.Bio.SetPtr(nil)                 // NULL
+Users.Bio.SetPtr(&s)                  // value via pointer
+Users.Bio.SetOpt(elixir.Some("x"))
+Users.Bio.EqOpt(elixir.None[string]()) // IS NULL
+p := elixir.Some("x").Ptr()           // *string
+```
 
 ### Select
 
@@ -101,7 +113,45 @@ elixir.Select(elixir.All()).From(Users)
 elixir.Select(elixir.AllOf(Users), Orders.Amount).From(Users)
 ```
 
-Joins, `GROUP BY` / `HAVING`, subqueries, CTEs, window functions, and `CASE` are also supported.
+### Joins
+
+Prefer `As` so column qualifiers match the alias. Use `EqExpr` for column–column conditions.
+
+```go
+U := elixir.As(Users, "u")
+O := elixir.As(Orders, "o")
+
+on := U.ID.EqExpr(O.UserID)
+
+// INNER JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	Join(O, on)
+
+// LEFT JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	LeftJoin(O, on)
+
+// RIGHT JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	RightJoin(O, on)
+
+// FULL JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	FullJoin(O, on)
+
+// Multiple joins
+P := elixir.As(Payments, "p")
+elixir.Select(U.Email, O.Amount, P.ID).
+	From(U).
+	LeftJoin(O, U.ID.EqExpr(O.UserID)).
+	LeftJoin(P, O.ID.EqExpr(P.OrderID))
+```
+
+`GROUP BY` / `HAVING`, subqueries, CTEs, window functions, and `CASE` are also supported.
 
 ### Insert / Update / Delete
 
@@ -173,7 +223,7 @@ Helpers inspect SQLSTATE, soft driver error shapes, and message patterns for Pos
 
 Experimental; the API may change.
 
-**Implemented:** typed expressions and predicates; SELECT/INSERT/UPDATE/DELETE; `All`/`AllOf`; `Bind`/`As`; column metadata; named insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; joins, aggregates, functions, subqueries, CTEs, windows, CASE; Postgres/MySQL/SQLite dialects; `Engine`; `sqlerr`.
+**Implemented:** typed expressions and predicates; SELECT/INSERT/UPDATE/DELETE; `All`/`AllOf`; `Bind`/`As`; `Null`/`NullColumn`; column `Default`; named insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; joins, aggregates, functions, subqueries, CTEs, windows, CASE; Postgres/MySQL/SQLite dialects; `Engine`; `sqlerr`.
 
 **Not yet:** recursive CTE; pgx integration helpers.
 

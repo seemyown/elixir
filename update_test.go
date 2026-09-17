@@ -86,12 +86,12 @@ func TestUpdateSetNull(t *testing.T) {
 	type bioTable struct {
 		TableRef
 		ID  Column[int64]
-		Bio Column[string]
+		Bio NullColumn[string]
 	}
 	tbio := Bind(bioTable{
 		TableRef: TableRef{Name: "users"},
 		ID:       Column[int64]{Name: "id"},
-		Bio:      Column[string]{Name: "bio", Nullable: true},
+		Bio:      NullColumn[string]{Name: "bio"},
 	})
 	q := Update(tbio).Set(SetNull(tbio.Bio)).Where(tbio.ID.Eq(1))
 	sql, args, err := q.Compile(Postgres())
