@@ -19,15 +19,23 @@ import (
 //	Users.Bio.SetOpt(elixir.None[string]())
 //	Users.Bio.SetSQLNull(sql.Null[string]{…})
 type NullColumn[T any] struct {
-	Table   string
-	Name    string
-	Default any
+	Table      string
+	Name       string
+	Default    T
+	HasDefault bool
 }
 
 func (NullColumn[T]) isColumn() {}
 
+// WithDefault records a typed DB default (including a zero value of T).
+func (c NullColumn[T]) WithDefault(v T) NullColumn[T] {
+	c.Default = v
+	c.HasDefault = true
+	return c
+}
+
 func (c NullColumn[T]) asColumn() Column[T] {
-	return Column[T]{Table: c.Table, Name: c.Name, Default: c.Default}
+	return Column[T]{Table: c.Table, Name: c.Name, Default: c.Default, HasDefault: c.HasDefault}
 }
 
 func (c NullColumn[T]) exprNode() ast.Node { return c.asColumn().exprNode() }
@@ -77,13 +85,47 @@ func (c NullColumn[T]) Lt(value T) Predicate              { return c.asExpr().Lt
 func (c NullColumn[T]) LtExpr(other ExprOf[T]) Predicate  { return c.asExpr().LtExpr(other) }
 func (c NullColumn[T]) Lte(value T) Predicate             { return c.asExpr().Lte(value) }
 func (c NullColumn[T]) LteExpr(other ExprOf[T]) Predicate { return c.asExpr().LteExpr(other) }
-func (c NullColumn[T]) IsNull() Predicate                 { return c.asExpr().IsNull() }
-func (c NullColumn[T]) IsNotNull() Predicate              { return c.asExpr().IsNotNull() }
-func (c NullColumn[T]) Asc() OrderExpr                    { return c.asExpr().Asc() }
-func (c NullColumn[T]) Desc() OrderExpr                   { return c.asExpr().Desc() }
-func (c NullColumn[T]) In(values ...T) Predicate          { return c.asExpr().In(values...) }
-func (c NullColumn[T]) NotIn(values ...T) Predicate       { return c.asExpr().NotIn(values...) }
-func (c NullColumn[T]) InQuery(q SelectQuery) Predicate   { return c.asExpr().InQuery(q) }
+func (c NullColumn[T]) Like(pattern string) Predicate     { return c.asExpr().Like(pattern) }
+func (c NullColumn[T]) LikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().LikeExpr(other)
+}
+func (c NullColumn[T]) NotLike(pattern string) Predicate { return c.asExpr().NotLike(pattern) }
+func (c NullColumn[T]) NotLikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().NotLikeExpr(other)
+}
+func (c NullColumn[T]) ILike(pattern string) Predicate { return c.asExpr().ILike(pattern) }
+func (c NullColumn[T]) ILikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().ILikeExpr(other)
+}
+func (c NullColumn[T]) NotILike(pattern string) Predicate { return c.asExpr().NotILike(pattern) }
+func (c NullColumn[T]) NotILikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().NotILikeExpr(other)
+}
+func (c NullColumn[T]) Between(low, high T) Predicate { return c.asExpr().Between(low, high) }
+func (c NullColumn[T]) BetweenExpr(low, high ExprOf[T]) Predicate {
+	return c.asExpr().BetweenExpr(low, high)
+}
+func (c NullColumn[T]) NotBetween(low, high T) Predicate {
+	return c.asExpr().NotBetween(low, high)
+}
+func (c NullColumn[T]) NotBetweenExpr(low, high ExprOf[T]) Predicate {
+	return c.asExpr().NotBetweenExpr(low, high)
+}
+func (c NullColumn[T]) Add(value T) Expr[T]             { return c.asExpr().Add(value) }
+func (c NullColumn[T]) AddExpr(other ExprOf[T]) Expr[T] { return c.asExpr().AddExpr(other) }
+func (c NullColumn[T]) Sub(value T) Expr[T]             { return c.asExpr().Sub(value) }
+func (c NullColumn[T]) SubExpr(other ExprOf[T]) Expr[T] { return c.asExpr().SubExpr(other) }
+func (c NullColumn[T]) Mul(value T) Expr[T]             { return c.asExpr().Mul(value) }
+func (c NullColumn[T]) MulExpr(other ExprOf[T]) Expr[T] { return c.asExpr().MulExpr(other) }
+func (c NullColumn[T]) Div(value T) Expr[T]             { return c.asExpr().Div(value) }
+func (c NullColumn[T]) DivExpr(other ExprOf[T]) Expr[T] { return c.asExpr().DivExpr(other) }
+func (c NullColumn[T]) IsNull() Predicate               { return c.asExpr().IsNull() }
+func (c NullColumn[T]) IsNotNull() Predicate            { return c.asExpr().IsNotNull() }
+func (c NullColumn[T]) Asc() OrderExpr                  { return c.asExpr().Asc() }
+func (c NullColumn[T]) Desc() OrderExpr                 { return c.asExpr().Desc() }
+func (c NullColumn[T]) In(values ...T) Predicate        { return c.asExpr().In(values...) }
+func (c NullColumn[T]) NotIn(values ...T) Predicate     { return c.asExpr().NotIn(values...) }
+func (c NullColumn[T]) InQuery(q SelectQuery) Predicate { return c.asExpr().InQuery(q) }
 func (c NullColumn[T]) NotInQuery(q SelectQuery) Predicate {
 	return c.asExpr().NotInQuery(q)
 }

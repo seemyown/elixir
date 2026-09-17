@@ -85,6 +85,112 @@ func (e Expr[T]) LteExpr(other ExprOf[T]) Predicate {
 	return binaryNodePred(e.node, OpLte, other.asExpr().node)
 }
 
+// Like builds expr LIKE pattern.
+func (e Expr[T]) Like(pattern string) Predicate {
+	return binaryNodePred(e.node, OpLike, ast.LiteralNode{Value: pattern})
+}
+
+// LikeExpr builds expr LIKE other.
+func (e Expr[T]) LikeExpr(other ExprOf[string]) Predicate {
+	return binaryNodePred(e.node, OpLike, other.asExpr().node)
+}
+
+// NotLike builds expr NOT LIKE pattern.
+func (e Expr[T]) NotLike(pattern string) Predicate {
+	return binaryNodePred(e.node, OpNotLike, ast.LiteralNode{Value: pattern})
+}
+
+// NotLikeExpr builds expr NOT LIKE other.
+func (e Expr[T]) NotLikeExpr(other ExprOf[string]) Predicate {
+	return binaryNodePred(e.node, OpNotLike, other.asExpr().node)
+}
+
+// ILike builds expr ILIKE pattern (PostgreSQL only; Compile errors on other dialects).
+func (e Expr[T]) ILike(pattern string) Predicate {
+	return binaryNodePred(e.node, OpILike, ast.LiteralNode{Value: pattern})
+}
+
+// ILikeExpr builds expr ILIKE other (PostgreSQL only).
+func (e Expr[T]) ILikeExpr(other ExprOf[string]) Predicate {
+	return binaryNodePred(e.node, OpILike, other.asExpr().node)
+}
+
+// NotILike builds expr NOT ILIKE pattern (PostgreSQL only).
+func (e Expr[T]) NotILike(pattern string) Predicate {
+	return binaryNodePred(e.node, OpNotILike, ast.LiteralNode{Value: pattern})
+}
+
+// NotILikeExpr builds expr NOT ILIKE other (PostgreSQL only).
+func (e Expr[T]) NotILikeExpr(other ExprOf[string]) Predicate {
+	return binaryNodePred(e.node, OpNotILike, other.asExpr().node)
+}
+
+// Between builds expr BETWEEN low AND high.
+func (e Expr[T]) Between(low, high T) Predicate {
+	return betweenPred(e.node, false, ast.LiteralNode{Value: low}, ast.LiteralNode{Value: high})
+}
+
+// BetweenExpr builds expr BETWEEN low AND high using expressions.
+func (e Expr[T]) BetweenExpr(low, high ExprOf[T]) Predicate {
+	return betweenPred(e.node, false, low.asExpr().node, high.asExpr().node)
+}
+
+// NotBetween builds expr NOT BETWEEN low AND high.
+func (e Expr[T]) NotBetween(low, high T) Predicate {
+	return betweenPred(e.node, true, ast.LiteralNode{Value: low}, ast.LiteralNode{Value: high})
+}
+
+// NotBetweenExpr builds expr NOT BETWEEN low AND high using expressions.
+func (e Expr[T]) NotBetweenExpr(low, high ExprOf[T]) Predicate {
+	return betweenPred(e.node, true, low.asExpr().node, high.asExpr().node)
+}
+
+// Add builds expr + value.
+func (e Expr[T]) Add(value T) Expr[T] {
+	return binaryArith[T](e.node, OpAdd, ast.LiteralNode{Value: value})
+}
+
+// AddExpr builds expr + other.
+func (e Expr[T]) AddExpr(other ExprOf[T]) Expr[T] {
+	return binaryArith[T](e.node, OpAdd, other.asExpr().node)
+}
+
+// Sub builds expr - value.
+func (e Expr[T]) Sub(value T) Expr[T] {
+	return binaryArith[T](e.node, OpSub, ast.LiteralNode{Value: value})
+}
+
+// SubExpr builds expr - other.
+func (e Expr[T]) SubExpr(other ExprOf[T]) Expr[T] {
+	return binaryArith[T](e.node, OpSub, other.asExpr().node)
+}
+
+// Mul builds expr * value.
+func (e Expr[T]) Mul(value T) Expr[T] {
+	return binaryArith[T](e.node, OpMul, ast.LiteralNode{Value: value})
+}
+
+// MulExpr builds expr * other.
+func (e Expr[T]) MulExpr(other ExprOf[T]) Expr[T] {
+	return binaryArith[T](e.node, OpMul, other.asExpr().node)
+}
+
+// Div builds expr / value.
+func (e Expr[T]) Div(value T) Expr[T] {
+	return binaryArith[T](e.node, OpDiv, ast.LiteralNode{Value: value})
+}
+
+// DivExpr builds expr / other.
+func (e Expr[T]) DivExpr(other ExprOf[T]) Expr[T] {
+	return binaryArith[T](e.node, OpDiv, other.asExpr().node)
+}
+
+// Cast converts an expression to another Go type, emitting CAST(x AS sqlType).
+// sqlType is raw SQL (e.g. "integer", "DOUBLE PRECISION") and is not quoted.
+func Cast[To any](e Expression, sqlType string) Expr[To] {
+	return Expr[To]{node: ast.CastNode{Expr: e.exprNode(), Type: sqlType}}
+}
+
 // IsNull builds an IS NULL predicate.
 func (e Expr[T]) IsNull() Predicate {
 	return Predicate{node: ast.UnaryNode{Op: OpIsNull, Expr: e.node}}
@@ -116,5 +222,17 @@ func binaryNodePred(left ast.Node, op BinaryOperator, right ast.Node) Predicate 
 			Op:    op,
 			Right: right,
 		},
+	}
+}
+
+func betweenPred(expr ast.Node, not bool, low, high ast.Node) Predicate {
+	return Predicate{
+		node: ast.BetweenNode{Expr: expr, Low: low, High: high, Not: not},
+	}
+}
+
+func binaryArith[T any](left ast.Node, op BinaryOperator, right ast.Node) Expr[T] {
+	return Expr[T]{
+		node: ast.BinaryNode{Left: left, Op: op, Right: right},
 	}
 }

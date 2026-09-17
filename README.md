@@ -11,12 +11,15 @@ Not an ORM — you define tables in Go and compose typed expressions into SQL. P
 ## Features
 
 - Typed columns and expressions (`Column[T]`, predicates, functions, aggregates)
+- `LIKE` / `ILIKE` (Postgres) / `BETWEEN` / `CAST` / arithmetic
 - Fluent `Select` / `Insert` / `Update` / `Delete` builders
+- `DISTINCT`, `UNION` / `UNION ALL`, optional `FROM` (e.g. `SELECT EXISTS(...)`)
 - `All()` / `AllOf(table)` for `SELECT *` and `table.*`
 - `Engine` with a default dialect so `Compile()` needs no extra argument
 - Postgres, MySQL, and SQLite dialects
-- Named inserts (`Set` / `WithDefaults`), `RETURNING`, `INSERT … SELECT`, `ON CONFLICT`
-- `Null[T]` / `NullColumn[T]` for nullable values (`*T`, compatible with `sql.Null[T]`)
+- Named inserts (`Set` / `WithDefaults`), `RETURNING`, `INSERT … SELECT`, `ON CONFLICT`, MySQL `ON DUPLICATE KEY`
+- Schema-qualified tables (`TableRef.Schema`)
+- `Null[T]` / `NullColumn[T]` for nullable values (`*T`, `sql.Scanner` / `driver.Valuer`, compatible with `sql.Null[T]`)
 - Driver-agnostic SQL error helpers in [`sqlerr`](./sqlerr)
 
 ## Installation
@@ -76,22 +79,23 @@ var Users = elixir.Bind(UserTable{
 	ID:       elixir.Column[int64]{Name: "id"},
 	Email:    elixir.Column[string]{Name: "email"},
 	Bio:      elixir.NullColumn[string]{Name: "bio"},
-	Active:   elixir.Column[bool]{Name: "active", Default: true},
+	Active:   elixir.Column[bool]{Name: "active"}.WithDefault(true),
 })
 
 u := elixir.As(Users, "u") // aliased copy for JOINs
 ```
 
 `Column[T]` is NOT NULL — `SetNull` / `Null[T]` do not compile against it.  
-`NullColumn[T]` accepts `SetPtr(*T)`, `SetOpt(Null[T])`, `SetSQLNull(sql.Null[T])`, `SetNull()`.
+`NullColumn[T]` accepts `SetPtr(*T)`, `SetOpt(Null[T])`, `SetSQLNull(sql.Null[T])`, `SetNull()`, and `IsNull` / `IsNotNull`.
 
-`Default` on either column type is used by `Insert.WithDefaults`.
+`WithDefault` records a typed DB default (including a zero value of `T`) for `Insert.WithDefaults`. Schema-qualify a table with `TableRef{Schema: "app", Name: "users"}` (`FROM "app"."users"`); column qualifiers stay alias/name. `Bind` / `As` do not clear `Schema`.
 
 ```go
 Users.Bio.SetPtr(nil)                 // NULL
 Users.Bio.SetPtr(&s)                  // value via pointer
 Users.Bio.SetOpt(elixir.Some("x"))
 Users.Bio.EqOpt(elixir.None[string]()) // IS NULL
+Users.Bio.IsNull()
 p := elixir.Some("x").Ptr()           // *string
 ```
 
@@ -106,11 +110,33 @@ q := elixir.Select(Users.ID, Users.Email).
 
 sql, args, err := q.Compile(elixir.Postgres())
 
+// SELECT DISTINCT
+elixir.Select(Users.Email).Distinct().From(Users)
+
+// UNION / UNION ALL (ORDER BY / LIMIT apply to the whole compound)
+elixir.Select(Users.ID).From(Users).
+	UnionAll(elixir.Select(Orders.UserID).From(Orders)).
+	OrderBy(Users.ID.Asc()).
+	Limit(10)
+
+// SELECT EXISTS (...) — no FROM on the outer query
+elixir.Select(elixir.Exists(elixir.Select(Users.ID).From(Users).Where(Users.ID.Eq(1))))
+
 // SELECT *
 elixir.Select(elixir.All()).From(Users)
 
 // SELECT "users".* (handy with joins)
 elixir.Select(elixir.AllOf(Users), Orders.Amount).From(Users)
+```
+
+`Like` / `ILike` / `Between` / `Cast` / arithmetic:
+
+```go
+Users.Email.Like("%@example.com")
+Users.Email.ILike("%@Example.com") // Postgres only; Compile errors on MySQL/SQLite
+Users.ID.Between(1, 10)
+elixir.Cast[int64](Users.Email, "integer")
+Orders.Amount.Add(1.5)
 ```
 
 ### Joins
@@ -175,7 +201,15 @@ elixir.Insert(Users).Set(
 	Users.Email.Set("a@example.com"),
 	Users.Active.Set(false),
 ).OnConflict(Users.Email).DoUpdate(
-	elixir.Set(Users.Active, true),
+	Users.Active.SetExpr(elixir.Excluded(Users.Active)),
+)
+
+// ON DUPLICATE KEY (MySQL)
+elixir.Insert(Users).Set(
+	Users.Email.Set("a@example.com"),
+	Users.Active.Set(false),
+).OnDuplicateKey(
+	Users.Active.SetExpr(elixir.ValuesCol(Users.Active)),
 )
 
 elixir.Update(Users).
@@ -217,13 +251,15 @@ Helpers inspect SQLSTATE, soft driver error shapes, and message patterns for Pos
 | MySQL | `MySQL()` | `?` | `` `ident` `` |
 | SQLite | `SQLite()` | `?` | `"ident"` |
 
-`ON CONFLICT` is Postgres/SQLite syntax. MySQL does not support it — use raw `ON DUPLICATE KEY UPDATE` if needed. `RETURNING` is emitted for all dialects; MySQL support depends on version.
+`ON CONFLICT` is Postgres/SQLite syntax. MySQL uses `OnDuplicateKey` (`ON DUPLICATE KEY UPDATE`). `ILIKE` is PostgreSQL-only (`Compile` returns `elixir: ILIKE is PostgreSQL-only` on other dialects). `RETURNING` is emitted for all dialects; MySQL support depends on version.
+
+Live-database checks: `go test -tags=integration ./...` (Postgres/MySQL DSNs via `ELIXIR_PG_DSN` / `ELIXIR_MYSQL_DSN`; SQLite in-process). Keep drivers in `go.mod` with `GOFLAGS='-tags=integration' go mod tidy`.
 
 ## Status
 
 Experimental; the API may change.
 
-**Implemented:** typed expressions and predicates; SELECT/INSERT/UPDATE/DELETE; `All`/`AllOf`; `Bind`/`As`; `Null`/`NullColumn`; column `Default`; named insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; joins, aggregates, functions, subqueries, CTEs, windows, CASE; Postgres/MySQL/SQLite dialects; `Engine`; `sqlerr`.
+**Implemented:** typed expressions and predicates (`LIKE`/`ILIKE`/`BETWEEN`/`CAST`/arithmetic); SELECT/INSERT/UPDATE/DELETE; `DISTINCT`; `UNION`; optional FROM; `All`/`AllOf`; `Bind`/`As`; schema-qualified tables; `Null`/`NullColumn` (`Scan`/`Value`); `WithDefault`; named insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT` + `EXCLUDED`; MySQL `ON DUPLICATE KEY` + `VALUES(col)`; joins, aggregates, functions, subqueries, CTEs, windows, CASE; Postgres/MySQL/SQLite dialects; `Engine`; `sqlerr`; CI integration job.
 
 **Not yet:** recursive CTE; pgx integration helpers.
 

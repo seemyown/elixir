@@ -18,7 +18,7 @@ func TestColumnComparisons(t *testing.T) {
 		{"Lte", Users.ID.Lte(5), `("users"."id" <= $1)`, []any{int64(5)}},
 		{"LteExpr", Users.ID.LteExpr(Orders.UserID), `("users"."id" <= "orders"."user_id")`, nil},
 		{"GtExpr", Users.ID.GtExpr(Orders.UserID), `("users"."id" > "orders"."user_id")`, nil},
-		{"IsNotNull", Users.Email.IsNotNull(), `("users"."email" IS NOT NULL)`, nil},
+		{"IsNotNull", Users.Bio.IsNotNull(), `("users"."bio" IS NOT NULL)`, nil},
 		{"NotIn", Users.ID.NotIn(1, 2), `("users"."id" NOT IN ($1, $2))`, []any{int64(1), int64(2)}},
 	}
 	for _, tc := range cases {

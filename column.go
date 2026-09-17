@@ -8,15 +8,24 @@ import "github.com/seemyown/elixir/internal/ast"
 // on Column[T] is a Go compile-time error.
 //
 //	Column[int64]{Name: "id"}
-//	Column[bool]{Name: "active", Default: true}
+//	Column[bool]{Name: "active"}.WithDefault(true)
 type Column[T any] struct {
 	// Table is an optional SQL qualifier (table name or alias).
 	Table string
 	// Name is the column name.
 	Name string
-	// Default, when non-nil, records a DB default. Used by Insert.WithDefaults
-	// to emit an explicit DEFAULT for omitted columns.
-	Default any
+	// Default records a DB default when HasDefault is true. Used by
+	// Insert.WithDefaults to emit an explicit DEFAULT for omitted columns.
+	// A zero T does not mean "no default" — set HasDefault / WithDefault.
+	Default    T
+	HasDefault bool
+}
+
+// WithDefault records a typed DB default (including a zero value of T).
+func (c Column[T]) WithDefault(v T) Column[T] {
+	c.Default = v
+	c.HasDefault = true
+	return c
 }
 
 // isColumn marks Column for Bind / As reflection (not used in query compile).
@@ -105,14 +114,104 @@ func (c Column[T]) LteExpr(other ExprOf[T]) Predicate {
 	return c.asExpr().LteExpr(other)
 }
 
-// IsNull builds an IS NULL predicate.
-func (c Column[T]) IsNull() Predicate {
-	return c.asExpr().IsNull()
+// Like builds column LIKE pattern.
+func (c Column[T]) Like(pattern string) Predicate {
+	return c.asExpr().Like(pattern)
 }
 
-// IsNotNull builds an IS NOT NULL predicate.
-func (c Column[T]) IsNotNull() Predicate {
-	return c.asExpr().IsNotNull()
+// LikeExpr builds column LIKE other.
+func (c Column[T]) LikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().LikeExpr(other)
+}
+
+// NotLike builds column NOT LIKE pattern.
+func (c Column[T]) NotLike(pattern string) Predicate {
+	return c.asExpr().NotLike(pattern)
+}
+
+// NotLikeExpr builds column NOT LIKE other.
+func (c Column[T]) NotLikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().NotLikeExpr(other)
+}
+
+// ILike builds column ILIKE pattern (PostgreSQL only).
+func (c Column[T]) ILike(pattern string) Predicate {
+	return c.asExpr().ILike(pattern)
+}
+
+// ILikeExpr builds column ILIKE other (PostgreSQL only).
+func (c Column[T]) ILikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().ILikeExpr(other)
+}
+
+// NotILike builds column NOT ILIKE pattern (PostgreSQL only).
+func (c Column[T]) NotILike(pattern string) Predicate {
+	return c.asExpr().NotILike(pattern)
+}
+
+// NotILikeExpr builds column NOT ILIKE other (PostgreSQL only).
+func (c Column[T]) NotILikeExpr(other ExprOf[string]) Predicate {
+	return c.asExpr().NotILikeExpr(other)
+}
+
+// Between builds column BETWEEN low AND high.
+func (c Column[T]) Between(low, high T) Predicate {
+	return c.asExpr().Between(low, high)
+}
+
+// BetweenExpr builds column BETWEEN low AND high using expressions.
+func (c Column[T]) BetweenExpr(low, high ExprOf[T]) Predicate {
+	return c.asExpr().BetweenExpr(low, high)
+}
+
+// NotBetween builds column NOT BETWEEN low AND high.
+func (c Column[T]) NotBetween(low, high T) Predicate {
+	return c.asExpr().NotBetween(low, high)
+}
+
+// NotBetweenExpr builds column NOT BETWEEN low AND high using expressions.
+func (c Column[T]) NotBetweenExpr(low, high ExprOf[T]) Predicate {
+	return c.asExpr().NotBetweenExpr(low, high)
+}
+
+// Add builds column + value.
+func (c Column[T]) Add(value T) Expr[T] {
+	return c.asExpr().Add(value)
+}
+
+// AddExpr builds column + other.
+func (c Column[T]) AddExpr(other ExprOf[T]) Expr[T] {
+	return c.asExpr().AddExpr(other)
+}
+
+// Sub builds column - value.
+func (c Column[T]) Sub(value T) Expr[T] {
+	return c.asExpr().Sub(value)
+}
+
+// SubExpr builds column - other.
+func (c Column[T]) SubExpr(other ExprOf[T]) Expr[T] {
+	return c.asExpr().SubExpr(other)
+}
+
+// Mul builds column * value.
+func (c Column[T]) Mul(value T) Expr[T] {
+	return c.asExpr().Mul(value)
+}
+
+// MulExpr builds column * other.
+func (c Column[T]) MulExpr(other ExprOf[T]) Expr[T] {
+	return c.asExpr().MulExpr(other)
+}
+
+// Div builds column / value.
+func (c Column[T]) Div(value T) Expr[T] {
+	return c.asExpr().Div(value)
+}
+
+// DivExpr builds column / other.
+func (c Column[T]) DivExpr(other ExprOf[T]) Expr[T] {
+	return c.asExpr().DivExpr(other)
 }
 
 // Asc marks the column for ascending ORDER BY.

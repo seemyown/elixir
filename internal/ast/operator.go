@@ -10,6 +10,14 @@ const (
 	OpGte
 	OpLt
 	OpLte
+	OpLike
+	OpNotLike
+	OpILike
+	OpNotILike
+	OpAdd
+	OpSub
+	OpMul
+	OpDiv
 )
 
 // SQL returns the SQL token for the operator.
@@ -27,6 +35,22 @@ func (op BinaryOperator) SQL() string {
 		return "<"
 	case OpLte:
 		return "<="
+	case OpLike:
+		return "LIKE"
+	case OpNotLike:
+		return "NOT LIKE"
+	case OpILike:
+		return "ILIKE"
+	case OpNotILike:
+		return "NOT ILIKE"
+	case OpAdd:
+		return "+"
+	case OpSub:
+		return "-"
+	case OpMul:
+		return "*"
+	case OpDiv:
+		return "/"
 	default:
 		return "?"
 	}

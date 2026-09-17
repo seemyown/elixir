@@ -116,6 +116,30 @@ func resolveDialect(embedded Dialect, ds ...Dialect) (Dialect, error) {
 	}
 }
 
+type compilerDialect struct {
+	inner      compiler.Dialect
+	allowILike bool
+	unionBare  bool
+}
+
+func (d compilerDialect) Placeholder(n int) string { return d.inner.Placeholder(n) }
+func (d compilerDialect) QuoteIdent(name string) string {
+	return d.inner.QuoteIdent(name)
+}
+func (d compilerDialect) ILikeOK() bool   { return d.allowILike }
+func (d compilerDialect) UnionBare() bool { return d.unionBare }
+
 func asCompilerDialect(d Dialect) compiler.Dialect {
-	return d
+	if d == nil {
+		return nil
+	}
+	allow := false
+	if x, ok := d.(interface{ ilikeOK() bool }); ok {
+		allow = x.ilikeOK()
+	}
+	bare := false
+	if x, ok := d.(interface{ unionBare() bool }); ok {
+		bare = x.unionBare()
+	}
+	return compilerDialect{inner: d, allowILike: allow, unionBare: bare}
 }

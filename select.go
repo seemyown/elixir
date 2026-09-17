@@ -82,6 +82,24 @@ func (q SelectQuery) Offset(n int) SelectQuery {
 	return q
 }
 
+// Distinct emits SELECT DISTINCT.
+func (q SelectQuery) Distinct() SelectQuery {
+	q.node.Distinct = true
+	return q
+}
+
+// Union appends UNION other. ORDER BY / LIMIT / OFFSET apply to the compound query.
+func (q SelectQuery) Union(other SelectQuery) SelectQuery {
+	q.node.Unions = append(q.node.Unions, ast.UnionNode{Query: other.node})
+	return q
+}
+
+// UnionAll appends UNION ALL other. ORDER BY / LIMIT / OFFSET apply to the compound query.
+func (q SelectQuery) UnionAll(other SelectQuery) SelectQuery {
+	q.node.Unions = append(q.node.Unions, ast.UnionNode{All: true, Query: other.node})
+	return q
+}
+
 // Join adds an INNER JOIN.
 func (q SelectQuery) Join(table Table, on Predicate) SelectQuery {
 	return q.addJoin(ast.JoinInner, table, on)

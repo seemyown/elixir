@@ -69,11 +69,11 @@ func TestAndOrEmptySingle(t *testing.T) {
 }
 
 func TestIsNull(t *testing.T) {
-	sql, args, err := CompilePredicate(Postgres(), Users.Email.IsNull())
+	sql, args, err := CompilePredicate(Postgres(), Users.Bio.IsNull())
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertSQL(t, sql, args, `("users"."email" IS NULL)`, nil)
+	assertSQL(t, sql, args, `("users"."bio" IS NULL)`, nil)
 }
 
 func TestCompilePredicateNilDialect(t *testing.T) {

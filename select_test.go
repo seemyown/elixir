@@ -98,8 +98,11 @@ func TestLeftRightFullJoin(t *testing.T) {
 }
 
 func TestSelectCompileErrors(t *testing.T) {
-	if _, _, err := Select(Users.ID).Compile(Postgres()); err == nil {
-		t.Fatal("expected FROM error")
+	if _, _, err := Select(Users.ID).Compile(Postgres()); err != nil {
+		t.Fatalf("FROM-less SELECT should compile: %v", err)
+	}
+	if _, _, err := Select(Users.ID).Join(Orders, Orders.UserID.EqExpr(Users.ID)).Compile(Postgres()); err == nil {
+		t.Fatal("expected JOIN without FROM error")
 	}
 	if _, _, err := Select().From(Users).Compile(Postgres()); err == nil {
 		t.Fatal("expected columns error")

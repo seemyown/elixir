@@ -2,6 +2,7 @@ package elixir
 
 import (
 	"database/sql"
+	"database/sql/driver"
 
 	"github.com/seemyown/elixir/internal/ast"
 )
@@ -61,6 +62,21 @@ func FromSQL[T any](n sql.Null[T]) Null[T] {
 // SQL converts to database/sql.Null[T] for drivers / scanners that expect it.
 func (n Null[T]) SQL() sql.Null[T] {
 	return sql.Null[T]{V: n.V, Valid: n.Valid}
+}
+
+// Scan implements database/sql.Scanner via sql.Null[T].
+func (n *Null[T]) Scan(src any) error {
+	var s sql.Null[T]
+	if err := s.Scan(src); err != nil {
+		return err
+	}
+	*n = FromSQL(s)
+	return nil
+}
+
+// Value implements database/sql/driver.Valuer via sql.Null[T].
+func (n Null[T]) Value() (driver.Value, error) {
+	return n.SQL().Value()
 }
 
 func nullToNode[T any](n Null[T]) ast.Node {

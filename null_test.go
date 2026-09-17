@@ -36,6 +36,37 @@ func TestNullHelpers(t *testing.T) {
 	}
 }
 
+func TestNullScanValue(t *testing.T) {
+	var n Null[string]
+	if err := n.Scan("hello"); err != nil {
+		t.Fatal(err)
+	}
+	if !n.Valid || n.V != "hello" {
+		t.Fatalf("scan value: %+v", n)
+	}
+	if err := n.Scan(nil); err != nil {
+		t.Fatal(err)
+	}
+	if n.Valid {
+		t.Fatal("scan nil should be invalid")
+	}
+
+	v, err := Some("x").Value()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "x" {
+		t.Fatalf("value: %#v", v)
+	}
+	v, err = None[string]().Value()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != nil {
+		t.Fatalf("none value: %#v", v)
+	}
+}
+
 func TestNullColumnSetPtrAndOpt(t *testing.T) {
 	type bioTable struct {
 		TableRef
