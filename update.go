@@ -22,7 +22,7 @@ func (q UpdateQuery) WithDialect(d Dialect) UpdateQuery {
 	return q
 }
 
-// Set appends SET assignments. Use Set / SetExpr / SetNull helpers or Column.Set.
+// Set appends SET assignments. Use Set / SetExpr or NullColumn.SetOpt / SetPtr / SetNull.
 func (q UpdateQuery) Set(assigns ...Assignment) UpdateQuery {
 	for _, a := range assigns {
 		q.node.Sets = append(q.node.Sets, a.node)

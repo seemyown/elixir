@@ -16,6 +16,7 @@
 - `Engine` с диалектом по умолчанию — `Compile()` без лишнего аргумента
 - Диалекты Postgres, MySQL и SQLite
 - Именованный insert (`Set` / `WithDefaults`), `RETURNING`, `INSERT … SELECT`, `ON CONFLICT`
+- `Null[T]` / `NullColumn[T]` для nullable-значений (`*T`, совместим с `sql.Null[T]`)
 - Классификация ошибок БД в пакете [`sqlerr`](./sqlerr)
 
 ## Установка
@@ -74,14 +75,25 @@ var Users = elixir.Bind(UserTable{
 	TableRef: elixir.TableRef{Name: "users"},
 	ID:       elixir.Column[int64]{Name: "id"},
 	Email:    elixir.Column[string]{Name: "email"},
-	Bio:      elixir.Column[string]{Name: "bio", Nullable: true},
+	Bio:      elixir.NullColumn[string]{Name: "bio"},
 	Active:   elixir.Column[bool]{Name: "active", Default: true},
 })
 
 u := elixir.As(Users, "u") // копия с алиасом для JOIN
 ```
 
-Опциональные метаданные: `Nullable`, `Default` (для `Insert.WithDefaults`).
+`Column[T]` — NOT NULL: `SetNull` / `Null[T]` к нему не скомпилируются.  
+`NullColumn[T]` принимает `SetPtr(*T)`, `SetOpt(Null[T])`, `SetSQLNull(sql.Null[T])`, `SetNull()`.
+
+`Default` на любой колонке используется в `Insert.WithDefaults`.
+
+```go
+Users.Bio.SetPtr(nil)                 // NULL
+Users.Bio.SetPtr(&s)                  // значение через указатель
+Users.Bio.SetOpt(elixir.Some("x"))
+Users.Bio.EqOpt(elixir.None[string]()) // IS NULL
+p := elixir.Some("x").Ptr()           // *string
+```
 
 ### Select
 
@@ -101,7 +113,45 @@ elixir.Select(elixir.All()).From(Users)
 elixir.Select(elixir.AllOf(Users), Orders.Amount).From(Users)
 ```
 
-Также поддерживаются JOIN, `GROUP BY` / `HAVING`, подзапросы, CTE, оконные функции и `CASE`.
+### Joins
+
+Для алиасов лучше `As`, чтобы квалификаторы колонок совпали. Условие колонка–колонка — через `EqExpr`.
+
+```go
+U := elixir.As(Users, "u")
+O := elixir.As(Orders, "o")
+
+on := U.ID.EqExpr(O.UserID)
+
+// INNER JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	Join(O, on)
+
+// LEFT JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	LeftJoin(O, on)
+
+// RIGHT JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	RightJoin(O, on)
+
+// FULL JOIN
+elixir.Select(U.Email, O.Amount).
+	From(U).
+	FullJoin(O, on)
+
+// Несколько JOIN
+P := elixir.As(Payments, "p")
+elixir.Select(U.Email, O.Amount, P.ID).
+	From(U).
+	LeftJoin(O, U.ID.EqExpr(O.UserID)).
+	LeftJoin(P, O.ID.EqExpr(P.OrderID))
+```
+
+Также поддерживаются `GROUP BY` / `HAVING`, подзапросы, CTE, оконные функции и `CASE`.
 
 ### Insert / Update / Delete
 
@@ -173,7 +223,7 @@ _ = sqlerr.Code(err) // SQLSTATE / код драйвера, если досту�
 
 Экспериментальный API; возможны изменения.
 
-**Реализовано:** типизированные выражения и предикаты; SELECT/INSERT/UPDATE/DELETE; `All`/`AllOf`; `Bind`/`As`; метаданные колонок; именованный insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; JOIN, агрегаты, функции, подзапросы, CTE, окна, CASE; диалекты Postgres/MySQL/SQLite; `Engine`; `sqlerr`.
+**Реализовано:** типизированные выражения и предикаты; SELECT/INSERT/UPDATE/DELETE; `All`/`AllOf`; `Bind`/`As`; `Null`/`NullColumn`; `Default` у колонок; именованный insert + `WithDefaults`; `RETURNING`; `INSERT … SELECT`; `ON CONFLICT`; JOIN, агрегаты, функции, подзапросы, CTE, окна, CASE; диалекты Postgres/MySQL/SQLite; `Engine`; `sqlerr`.
 
 **Пока нет:** рекурсивные CTE; хелперы интеграции с pgx.
 

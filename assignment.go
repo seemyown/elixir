@@ -7,7 +7,7 @@ type Assignment struct {
 	node ast.AssignNode
 }
 
-// Set builds a typed column = literal assignment.
+// Set builds a typed column = literal assignment for a non-NULL Column[T].
 func Set[T any](col Column[T], value T) Assignment {
 	return Assignment{
 		node: ast.AssignNode{
@@ -17,22 +17,12 @@ func Set[T any](col Column[T], value T) Assignment {
 	}
 }
 
-// SetExpr builds a typed column = expression assignment.
+// SetExpr builds a typed column = expression assignment for Column[T].
 func SetExpr[T any](col Column[T], expr ExprOf[T]) Assignment {
 	return Assignment{
 		node: ast.AssignNode{
 			Column: col.exprNode(),
 			Value:  expr.asExpr().node,
-		},
-	}
-}
-
-// SetNull builds a typed column = NULL assignment.
-func SetNull[T any](col Column[T]) Assignment {
-	return Assignment{
-		node: ast.AssignNode{
-			Column: col.exprNode(),
-			Value:  ast.NullNode{},
 		},
 	}
 }

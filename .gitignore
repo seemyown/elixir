@@ -1,0 +1,23 @@
+# Local / IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local guides (not published)
+GUIDE.md
+GUIDE.ru.md
+docs/local/
+
+# Go
+*.exe
+*.test
+*.out
+coverage.out
+coverage.html
+vendor/

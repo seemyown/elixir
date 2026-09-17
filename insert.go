@@ -56,7 +56,7 @@ func (q InsertQuery) Select(sel SelectQuery) InsertQuery {
 }
 
 // Set appends named column assignments (partial / full insert without positional Values).
-// Use Set / SetExpr / SetNull helpers or Column.Set methods.
+// Use Set / SetExpr helpers, Column.Set, or NullColumn.SetOpt / SetPtr / SetNull.
 func (q InsertQuery) Set(assigns ...Assignment) InsertQuery {
 	for _, a := range assigns {
 		q.assigns = append(q.assigns, a.node)
